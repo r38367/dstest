@@ -14,12 +14,14 @@ Versions:
 v1
 30/11/23
 	- add #1 - initial prototype
-
+v2
+01/12/23
+	- add #3 - save screnshot
 
 ================================
 #ce
 
-Local const $nVer = "1"
+Local const $nVer = "2"
 
 ;===============================================================================
 #Region Global Include files
@@ -29,7 +31,8 @@ Local const $nVer = "1"
 #include <WindowsConstants.au3>
 ;#include <GUIConstants.au3>
 ;#include <GuiEdit.au3>
-
+#include <Date.au3>
+#include <ScreenCapture.au3>
 #EndRegion Global Include files
 
 ;===============================================================================
@@ -201,7 +204,7 @@ EndFunc
 
 Func Open_Button_pressed()
 
-	MsgBox( 0, "Button pressed", "Open " )
+	;MsgBox( 0, "Button pressed", "Open " )
 
 EndFunc
 
@@ -212,7 +215,8 @@ EndFunc
 
 Func Take_Button_pressed()
 
-	MsgBox( 0, "Take pressed", "Take snapshot " )
+	ScreenShotToFile()
+	;MsgBox( 0, "Take pressed", "Take snapshot " )
 
 EndFunc
 
@@ -296,3 +300,24 @@ Func _StripClip( $hWnd, $iMsg, $wParam, $lParam, $iSubclassId, $pData )
   ; Call next function in subclass chain
   Return DllCall( "comctl32.dll", "lresult", "DefSubclassProc", "hwnd", $hWnd, "uint", $iMsg, "wparam", $wParam, "lparam", $lParam )[0] ; _WinAPI_DefSubclassProc
 EndFunc
+
+
+
+;===============================================================================
+; Function Name:    Take screenshot and save to file
+;===============================================================================
+Func ScreenShotToFile( $title="" )
+
+	; make file name for screen capture
+	Local $name = @ScriptDir & "\" & StringRegExpReplace( _NowCalc(), "(\d\d\d\d).(\d\d).(\d\d) (\d\d):(\d\d):(\d\d)", '$3-$2-$1-$4$5$6_screen.jpg')
+	if $title <> "" then $name=StringReplace( $name, "screen", $title )
+
+	;ConsoleWrite( $name & @CRLF )
+
+	; Capture full screen
+    _ScreenCapture_Capture( $name )
+	if @error then
+		MsgBox( 0, "Error", "Screen capture failed" )
+	EndIf
+
+EndFunc   ;==>ScreenShotToFile
