@@ -18,6 +18,7 @@ v2
 01/12/23
 	- add #3 - save screnshot to file <timestamp>_screen.jpg
 	- add #6 - save screenshots to Word
+	- add #4 - always on top
 
 ================================
 #ce
@@ -199,6 +200,9 @@ Local const $guiTop = -1
 
 	; start GUI
 	GUISetState() ; will display an empty dialog box
+
+	; Always on top
+	WinSetOnTop($gui, "", $WINDOWS_ONTOP)
 
 EndFunc
 
