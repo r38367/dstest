@@ -16,7 +16,8 @@ v1
 	- add #1 - initial prototype
 v2
 01/12/23
-	- add #3 - save screnshot
+	- add #3 - save screnshot to file <timestamp>_screen.jpg
+	- add #6 - save screenshots to Word
 
 ================================
 #ce
@@ -33,6 +34,8 @@ Local const $nVer = "2"
 ;#include <GuiEdit.au3>
 #include <Date.au3>
 #include <ScreenCapture.au3>
+#include <Word.au3>
+#include <String.au3>
 #EndRegion Global Include files
 
 ;===============================================================================
@@ -51,6 +54,8 @@ Global $idInput
 Global $idLabel
 
 Global	$hInput, $pInputProc ; to control Paste into Input control
+
+Global	$policy, $test, $logfile, $bValidName = False
 
 #EndRegion Global Variables
 
@@ -215,17 +220,18 @@ EndFunc
 
 Func Take_Button_pressed()
 
-	ScreenShotToFile()
 	;MsgBox( 0, "Take pressed", "Take snapshot " )
+	Local $name = ScreenshotFileName()
+	ScreenShotToJpg( $name )
+	if $bValidName then _SavePicToWord( createLogFile(), $name, false )
+
 
 EndFunc
-
 
 ;===============================================================================
 ; Function Name:    Input_pressed()
 ;===============================================================================
 Func Input_pressed()
-	Local $test, $policy, $file
 	Local $err, $input
 	Local $sText = "Test:{test}, Policy:{policy}"
 
@@ -234,50 +240,64 @@ Func Input_pressed()
 
 
 	; Get name and surname
-	$file = GetFields( $input, $test, $policy ) & ".docx"
+	setLogFile( GetFields( $input ) & ".docx" )
 
-	GUICtrlSetData($idLabel, $file )
+	GUICtrlSetData($idLabel, "Test:"&getTest()&", Policy:"&getPolicy()& _StringRepeat(" ", 10) )
 	;MSgBox( 0, "Input", "Input pressed!" & @CRLF & $input )
 
 EndFunc
 
 
-Func	GetFields( $input, byref $test, byref $policy )
+Func	GetFields( $input )
 
 	; acceptable format:
 	; 	dddd ddddddd
 	;	ddddddd dddd
-
+ConsoleWrite( $input & @CRLF )
 	; if test+policy
 	If StringRegExp( $input, "^(\d{4,5}) +(\d{7})$" ) then
 ConsoleWrite( "1" & @CRLF )
-
-		$test   = StringRegExpReplace( $input, "^(\d+) (\d+)$", "$1" )
-		$policy = StringRegExpReplace( $input, "^(\d+) (\d+)$", "$2" )
-
+		setTest( StringRegExpReplace( $input, "^(\d+) (\d+)$", "$1" ) )
+		setPolicy( StringRegExpReplace( $input, "^(\d+) (\d+)$", "$2" ) )
+$bValidName = true
 	; if policy + test
 	elseif  StringRegExp( $input, "^(\d{7}) (\d{4,5})$" ) then
 ConsoleWrite( "2" & @CRLF )
+		setTest( StringRegExpReplace( $input, "^(\d+) (\d+)$", "$1" ) )
+		setPolicy( StringRegExpReplace( $input, "^(\d+) (\d+)$", "$2" ) )
+$bValidName = true
 
-		$policy = StringRegExpReplace( $input, "^(\d+) (\d+)$", "$1" )
-		$test   = StringRegExpReplace( $input, "^(\d+) (\d+)$", "$2" )
-
-	; if policy + test
+	; if policy
 	elseif  StringRegExp( $input, "^(\d{7})$" ) then
-ConsoleWrite( "2" & @CRLF )
+ConsoleWrite( "3" & @CRLF )
+		setPolicy( StringRegExpReplace( $input, "^(\d+)$", "$1" ) )
+		setTest( "XXXX" )
 
-		$policy = StringRegExpReplace( $input, "^(\d+)$", "$1" )
-		$test   = "XXXX"
+$bValidName = false
+
+	; if test
+	elseif  StringRegExp( $input, "^(\d{4,5})$" ) then
+ConsoleWrite( "4" & @CRLF )
+		setTest( StringRegExpReplace( $input, "^(\d+)$", "$1" ) )
+		setPolicy( "0000000" )
+
+$bValidName = false
+
 ; if wrong format
 	Else
-		Return "error"
+ConsoleWrite( "5" & @CRLF )
+	$bValidName = false
+	setTest( "XXXX" )
+	setPolicy( "0000000" )
+
+	Return "error"
 
 	EndIf
 
 		;$test   = StringRegExpReplace( $input, "^(\d{4}\d?\d?) (\d{7})$", "$1" )
 		;$policy = StringRegExpReplace( $input, "^(\d+) (\d+)$", "$2" )
 
-	return $test & "_Anton_" & $policy
+	return getTest() & "_Anton_" & getPolicy()
 
 EndFunc
 
@@ -304,15 +324,26 @@ EndFunc
 
 
 ;===============================================================================
-; Function Name:    Take screenshot and save to file
+; Function Name:    Make name for screenshot
 ;===============================================================================
-Func ScreenShotToFile( $title="" )
 
-	; make file name for screen capture
-	Local $name = @ScriptDir & "\" & StringRegExpReplace( _NowCalc(), "(\d\d\d\d).(\d\d).(\d\d) (\d\d):(\d\d):(\d\d)", '$3-$2-$1-$4$5$6_screen.jpg')
+Func	ScreenshotFileName()
+
+	Local $title = StringStripWS( GUICtrlRead($idInput), 7) ; get input
+	Local $name = StringRegExpReplace( _NowCalc(), "(\d\d\d\d).(\d\d).(\d\d) (\d\d):(\d\d):(\d\d)", '$3-$2-$1-$4$5$6_screen.jpg')
 	if $title <> "" then $name=StringReplace( $name, "screen", $title )
 
-	;ConsoleWrite( $name & @CRLF )
+	; check if input is not empty
+	ConsoleWrite( $name & @CRLF )
+	return @ScriptDir & "\" & $name
+
+EndFunc ;==> ScreenshotFileName
+
+;===============================================================================
+; Function Name:    Take screenshot and save to file
+;===============================================================================
+Func ScreenShotToJpg( $name )
+
 
 	; Capture full screen
     _ScreenCapture_Capture( $name )
@@ -320,4 +351,115 @@ Func ScreenShotToFile( $title="" )
 		MsgBox( 0, "Error", "Screen capture failed" )
 	EndIf
 
-EndFunc   ;==>ScreenShotToFile
+EndFunc   ;==>ScreenShotToJpg
+
+
+;===============================================================================
+; Function Name:    Take screenshot and save to file
+;===============================================================================
+Func ScreenShotToWord( $name )
+
+; get name for word file
+
+	if $bValidName then
+
+		_SavePicToWord( createLogFile(), $name  )
+
+	EndIf
+
+	; Do not save if not valif policy or test
+
+EndFunc   ;==>ScreenShotToWord
+
+
+;===============================================================================
+; class to work with global variables
+;===============================================================================
+
+Func	getPolicy()
+	return $policy
+EndFunc
+
+Func	setPolicy($p)
+	$policy = $p
+EndFunc
+
+Func	getTest()
+	return $test
+EndFunc
+
+Func	setTest($t)
+	$test = $t
+EndFunc
+
+Func	getLogFile()
+	return $logfile
+EndFunc
+
+Func	setLogFile($f)
+	$logfile = $f
+EndFunc
+
+Func	createLogFile()
+
+	Local	$test = getTest()
+	Local	$policy = getPolicy()
+
+	setLogFile( @ScriptDir & "\" & $test & "_Anton_" & $policy & ".docx" )
+	return  getLogFile()
+
+EndFunc
+
+
+Func _SavePicToWord( $sWord, $sPicName, $bVisible=false )
+	Local 	$oDoc
+
+ConsoleWrite( "-"& $sWord & "-" & @CRLF & $sPicName & @CRLF )
+
+	; Create application object
+	Local $oWord = _Word_Create( $bVisible )
+	If @error Then Exit MsgBox($MB_SYSTEMMODAL, "_Word_Create", _
+					"Error creating a new Word application object." & @CRLF & "@error = " & @error & ", @extended = " & @extended)
+
+	; Open the test document
+	if not FileExists( $sWord ) then
+		; create file
+
+		$oDoc = _Word_DocAdd($oWord)
+		If @error Then Exit MsgBox($MB_SYSTEMMODAL, "_Word_DocAdd", _
+					 "@error = " & @error & ", @extended = " & @extended)
+
+		_Word_DocSaveAs($oDoc, $sWord, 16)
+		If @error Then Exit MsgBox($MB_SYSTEMMODAL, "_Word_DocSaveAs", _
+					 "@error = " & @error & ", @extended = " & @extended)
+	EndIf
+
+	; open file
+	Local $oDoc = _Word_DocOpen( $oWord, $sWord, Default, Default, False, False, True )
+		; set to end
+
+	If @error Then Exit MsgBox($MB_SYSTEMMODAL, "_Word_DocOpen", _
+					 "@error = " & @error & ", @extended = " & @extended)
+
+	; Insert a picture after the fourth word of the document
+	; Set the range as insert marker after the 4th word
+	Local $oRange = _Word_DocRangeSet($oDoc, -2 )
+	$oRange.insertAfter(@CRLF & _NowCalc() )
+	$oRange = _Word_DocRangeSet($oDoc, -2 )
+	_Word_DocPictureAdd($oDoc, $sPicName, Default, Default, $oRange)
+	If @error Then Exit MsgBox($MB_SYSTEMMODAL, "_Word_DocPictureAdd", _
+					" @error = " & @error & ", @extended = " & @extended)
+	$oRange = _Word_DocRangeSet($oDoc, -2 )
+	;$oRange.Select
+
+	; Close document
+	_Word_DocSave($oDoc)
+	If @error Then Exit MsgBox($MB_SYSTEMMODAL, "_Word_DocSave", _
+					" @error = " & @error & ", @extended = " & @extended)
+	;if not $bVisible then
+		_Word_Quit($oWord, $WdSaveChanges )
+		If @error Then Exit MsgBox($MB_SYSTEMMODAL, "_Word_DocClose", _
+					" @error = " & @error & ", @extended = " & @extended)
+	;EndIf
+
+EndFunc
